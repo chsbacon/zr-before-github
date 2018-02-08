@@ -1,0 +1,229 @@
+//Begin page main
+//to do
+//get the red/blue symmetry perfect
+//see if origin is a better or adaquate place to put the third/
+//make defEnZone take out their items.
+
+float myState[12];
+float enState[12];
+#define myPos (&myState[0])
+#define myVel (&myState[3])
+#define myAtt (&myState[6])
+#define myRot (&myState[9])
+#define enPos (&enState[0])
+#define enVel (&enState[3])
+#define enAtt (&enState[6])
+#define enRot (&enState[9])
+
+float myZone[4];
+float enZone[3];
+
+float myScore;
+float enScore;
+float targetScore;
+
+float zeroVec[3];
+float orthoVec[3];
+float firstVec[3];
+float secondVec[3];
+float oneToTwo[3];
+
+bool holdFirst;
+bool holdSecond;
+bool defendZone;
+
+int enTargetItem;
+
+#define PRINTVEC(vec) DEBUG(("%f %f %f", vec[0], vec[1], vec[2]))
+
+void init(){
+    //mess around with these values to be less fuel efficient
+    #define SPEEDCONST .35
+    api.setPosGains(SPEEDCONST,0.1,7 * SPEEDCONST);
+    //something to tweak
+    
+    firstVec[0] = -.4;
+    firstVec[1] = .7f;
+    firstVec[2] = 0;
+    
+    secondVec[0] = .4f;   
+    secondVec[1] = .7f;
+    secondVec[2] = 0;
+    
+    zeroVec[0] = 0;
+    zeroVec[1] = 0;
+    zeroVec[2] = 0;
+    
+    holdFirst = true;
+    holdSecond = true;
+    defendZone = false;
+    
+    enTargetItem = -1;
+}
+
+void loop(){
+    
+    api.getMyZRState(myState);
+    api.getOtherZRState(enState);
+    myScore = game.getScore();
+    enScore = game.getOtherScore();
+    
+    if(game.getCurrentTime() < 1)
+        if(myPos[1] < 0){
+            scale(firstVec, -1);
+            scale(secondVec, -1);
+        }
+    
+    if(defendZone){
+        game.getZone(myZone);
+        PRINTVEC(myZone);
+        defEnZone();
+    }    
+    
+    else if(myScore <= enScore){
+            if(holdFirst){
+                api.setPositionTarget(firstVec);
+                if(dist(zeroVec, myPos) > .7){
+                    game.dropSPS();
+                    memcpy(firstVec, myPos, 12);
+                    holdFirst = false;
+                }
+            }
+            else if(holdSecond){
+            //drop the second at some point going either 45 or -45 degrees from the origin.
+                api.setPositionTarget(secondVec);
+                if(dist(myPos, firstVec) > .7){
+                    game.dropSPS();
+                    memcpy(secondVec, myPos, 12);
+                    holdSecond = false;
+                }
+            }
+            else if(enScore == 0){
+                //go to the origin and wait
+                    api.setPositionTarget(zeroVec);
+            }
+            else{
+                targetScore = enScore + .05;
+                mathVecSubtract(oneToTwo, secondVec, firstVec, 3);
+                scale(oneToTwo, .5);
+                mathVecAdd(oneToTwo, oneToTwo, firstVec, 3);
+                orthoVec[0] = 0;
+                orthoVec[1] = -1;
+                orthoVec[2] = 0;
+                mathVecNormalize(orthoVec, 3);
+                //scale it by the required altitude length
+                scale(orthoVec, .3);
+                mathVecAdd(orthoVec, oneToTwo, orthoVec, 3);
+                if mathVecMagnit
+                PRINTVEC(orthoVec);
+                //get the area needed for the target
+                //find out how long the alltitude of the isosceles triangle needs to be
+                //go there and place it.
+                api.setPositionTarget(orthoVec);
+                if(dist(myPos, orthoVec) < .015){
+                    defendZone = true;
+                    game.dropSPS();
+                }
+                //once they place their third go to the specific point on that line and place your third.
+                
+            }
+    }
+    //After that, defend their zone
+}
+
+void defEnZone(){
+    //go to their zone + a little in their direction
+    DEBUG(("Defending their zone"));
+    float defPos[3], enDir[3], enItemPos[3], zoneToMe[3];
+    float enItemDist;
+    float closeDist = .15;
+    float zoneDist;
+    
+    for(int i = 0; i < 3; i ++)
+        enZone[i] = myZone[i] * -1;
+        
+    /*DEBUG(("looking for their items"));
+    enTargetItem = -1;
+    for(int i = 0; i < 6; i ++){
+        game.getItemLoc(enItemPos, i);
+        enItemDist = dist(enItemPos, enZone);
+        if(enItemDist < closeDist)
+            enTargetItem = i;
+    }
+    
+    //take the items out of their zone
+    if(enTargetItem > -1){
+        DEBUG(("Getting their items %i", enTargetItem));
+        //if(getItem(enTargetItem))
+            //game.dropItem();
+        getItem(enTargetItem);
+        if(game.hasItem(enTargetItem) == 1){
+            DEBUG(("I got it!"));
+            mathVecSubtract(zoneToMe, myPos, enZone, 3);
+            mathVecNormalize(zoneToMe, 3);
+            api.setAttitudeTarget(zoneToMe);
+            scale(zoneToMe, .05);
+            mathVecAdd(zoneToMe, enZone, zoneToMe, 3);
+            api.setPositionTarget(zoneToMe);
+            zoneDist = dist(myPos, enZone);
+            if(zoneDist > .1 && angle(myAtt, zoneToMe) < .2){
+                game.dropItem();
+                enTargetItem = -1;
+            }
+        }
+    }
+    */
+    //else{
+        //DEBUG(("Keep them out"));
+        mathVecSubtract(enDir, enPos, enZone, 3);
+        mathVecNormalize(enDir, 3);
+        scale(enDir, .08);
+        mathVecAdd(defPos, enZone, enDir, 3);
+        api.setPositionTarget(defPos);
+
+}
+
+void scale (float* vec, float scale) {
+    for (int i=0; i<3; i++) {
+        vec[i] *= scale;
+    }
+}
+
+float dist(float* vec1, float* vec2) {
+    float diff[3];
+    mathVecSubtract(diff, vec1, vec2, 3);
+    return mathVecMagnitude(diff,3);
+}
+
+bool getItem(int id) {
+    DEBUG(("getting %d", id));
+    float toItem[3], itemLoc[3], targetPos[3];
+    float itemPickupDist = itemDockDistOuter(id);
+    game.getItemLoc(itemLoc, id);
+    mathVecSubtract(toItem, itemLoc, myPos, 3);
+    float itemDist = mathVecNormalize(toItem, 3);
+    api.setAttitudeTarget(toItem);
+    scale(toItem, itemDist-itemPickupDist+0.01f);
+    //DEBUG(("dist:%f (%f) speed:%f angle:%f", itemDist, itemDist-itemPickupDist+0.01f, mathVecMagnitude(myVel,3),angle(myAtt,toItem)));
+    mathVecAdd(targetPos, toItem, myPos, 3);
+    api.setPositionTarget(targetPos);
+    //DEBUG(("getItem target:"));
+    if(mathVecMagnitude(myVel,3)<0.01f && itemDist<itemPickupDist && angle(myAtt,toItem)<0.25f) {
+        //DEBUG(("attempting to dock"));
+        //try to correct for jump when dropping items
+        //pickUpDist = itemDist - 0.04f;
+        return game.dockItem();
+    }
+    return false;
+}
+
+float angle(float* vec1, float* vec2) {
+    return acosf(mathVecInner(vec1,vec2,3)/(mathVecMagnitude(vec1,3)*mathVecMagnitude(vec2,3)));
+}
+
+float itemDockDistOuter(int id) {
+    int itemType = game.getItemType(id);
+    return (itemType==ITEM_TYPE_LARGE) ? 
+            0.173f :(itemType==ITEM_TYPE_MEDIUM ? 0.16f : 0.146f);
+}
+//End page main
